@@ -1,0 +1,61 @@
+# Hooked 插件配置文件
+
+debug: false
+
+debris:
+  max_per_player: 25
+  spawn_interval_seconds: 5
+  spawn_distance_min: 16
+  spawn_distance_max: 48
+  despawn_distance: 128
+  drift_speed: 0.04
+  y_level_offset: 0.2
+
+hook:
+  cooldown_seconds: 1.5
+  hit_radius: 2.0
+  grab_animation_speed: 0.5
+
+integrations:
+  itemsadder: true
+  worldguard: true
+  bentobox: true
+
+drift_ai_class: ""
+
+types:
+  plank:
+    block: OAK_PLANKS
+    itemsadder_id: ""
+    weight: 50
+    loot:
+      - item: OAK_PLANKS
+        min: 1
+        max: 3
+        chance: 100.0
+  barrel:
+    block: BARREL
+    itemsadder_id: ""
+    weight: 20
+    loot:
+      - item: STICK
+        min: 1
+        max: 4
+        chance: 80.0
+      - item: STRING
+        min: 1
+        max: 1
+        chance: 30.0
+  leaves:
+    block: OAK_LEAVES
+    itemsadder_id: ""
+    weight: 30
+    loot:
+      - item: STICK
+        min: 1
+        max: 2
+        chance: 70.0
+      - item: APPLE
+        min: 1
+        max: 1
+        chance: 15.0
