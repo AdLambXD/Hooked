@@ -74,7 +74,8 @@ public final class SpawnControllerImpl implements ISpawnController {
             final World world = player.getWorld();
             if (world.getEnvironment() != World.Environment.NORMAL) continue;
 
-            final int current = debrisManager.countNearby(player.getLocation(), radius);
+            final Location northLoc = player.getLocation().clone().add(0, 0, -96);
+            final int current = debrisManager.countNearby(northLoc, radius);
             final int deficit = maxPerPlayer - current;
             if (deficit <= 0) continue;
 
@@ -121,17 +122,10 @@ public final class SpawnControllerImpl implements ISpawnController {
     }
 
     private Location findSpawnLocation(final Location playerLoc, final World world) {
-        final int minDist = configManager.getSpawnDistanceMin();
-        final int maxDist = configManager.getSpawnDistanceMax();
         final double yOffset = configManager.getYLevelOffset();
 
-        if (maxDist <= minDist) return null;
-
-        final double dist = minDist + random.nextDouble() * (maxDist - minDist);
-        final double angle = random.nextDouble() * 2 * Math.PI;
-
-        final double x = playerLoc.getX() + Math.cos(angle) * dist;
-        final double z = playerLoc.getZ() + Math.sin(angle) * dist;
+        final double x = playerLoc.getX() + random.nextDouble(-16, 16);
+        final double z = playerLoc.getZ() - 96;
 
         final int seaLevel = world.getSeaLevel();
         final int blockX = (int) Math.floor(x);
@@ -254,8 +248,8 @@ public final class SpawnControllerImpl implements ISpawnController {
         interaction.addScoreboardTag(Constants.ENTITY_TAG);
         interaction.setPersistent(false);
 
-        final Vector driftDir = new Vector(
-            random.nextDouble() * 2 - 1, 0, random.nextDouble() * 2 - 1).normalize();
+        final double angleRad = Math.toRadians(random.nextDouble(-5.0, 5.0));
+        final Vector driftDir = new Vector(-Math.sin(angleRad), 0, Math.cos(angleRad)).normalize();
 
         final Debris debris = new Debris(entity.getUniqueId(), type, entity.getLocation(), driftDir);
         debris.setEntity(entity);

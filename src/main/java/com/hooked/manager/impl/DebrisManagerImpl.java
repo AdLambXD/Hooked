@@ -8,6 +8,7 @@ import com.hooked.model.Debris;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Interaction;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityRemoveEvent;
@@ -170,6 +171,17 @@ public final class DebrisManagerImpl implements IDebrisManager, Listener {
             }
         }
         return count;
+    }
+
+    @Override
+    public Debris findDebrisByInteractionUUID(final UUID interactionUUID) {
+        for (final Debris debris : getAllDebris()) {
+            final Interaction interaction = debris.getInteractionEntity();
+            if (interaction != null && interaction.getUniqueId().equals(interactionUUID)) {
+                return debris;
+            }
+        }
+        return null;
     }
 
     @Override

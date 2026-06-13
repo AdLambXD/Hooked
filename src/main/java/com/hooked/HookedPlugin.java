@@ -2,6 +2,8 @@ package com.hooked;
 
 import com.hooked.ai.IDriftAI;
 import com.hooked.ai.impl.DefaultDriftAI;
+import com.hooked.attack.IAttackHandler;
+import com.hooked.attack.impl.AttackHandlerImpl;
 import com.hooked.command.HookedCommand;
 import com.hooked.config.ConfigManager;
 import com.hooked.constants.Constants;
@@ -27,6 +29,7 @@ public final class HookedPlugin extends JavaPlugin {
     private ISpawnController spawnController;
     private IDriftAI driftAI;
     private IHookHandler hookHandler;
+    private IAttackHandler attackHandler;
     private ILootGenerator lootGenerator;
     private HookedCommand commandHandler;
 
@@ -45,6 +48,7 @@ public final class HookedPlugin extends JavaPlugin {
             spawnController = new SpawnControllerImpl(this, configManager, debrisManager);
             driftAI = new DefaultDriftAI(this, configManager, debrisManager);
             hookHandler = new HookHandlerImpl(this, configManager, debrisManager, lootGenerator);
+            attackHandler = new AttackHandlerImpl(this, configManager, debrisManager, lootGenerator);
 
             commandHandler = new HookedCommand(this, configManager, debrisManager);
             final PluginCommand cmd = Objects.requireNonNull(getCommand("hooked"));
@@ -54,6 +58,9 @@ public final class HookedPlugin extends JavaPlugin {
             spawnController.start();
             driftAI.start();
             hookHandler.start();
+            if (configManager.isAttackEnabled()) {
+                attackHandler.start();
+            }
 
             logger.info("Hooked enabled successfully. " + Constants.PLUGIN_NAME + " is ready.");
         } catch (final Exception e) {
@@ -68,6 +75,7 @@ public final class HookedPlugin extends JavaPlugin {
 
         try {
             if (hookHandler != null) hookHandler.stop();
+            if (attackHandler != null) attackHandler.stop();
             if (driftAI != null) driftAI.stop();
             if (spawnController != null) spawnController.stop();
             if (debrisManager != null) debrisManager.clearAll();

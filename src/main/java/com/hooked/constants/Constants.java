@@ -9,7 +9,7 @@ public final class Constants {
     public static final long CLEANUP_TICK_INTERVAL = 100L;
     public static final long HOOK_TIMEOUT_MS = 5000L;
     public static final double DRIFT_DIRECTION_CHANGE_INTERVAL_SECONDS = 5.0;
-    public static final double DIRECTION_PERTURB_DEGREES = 30.0;
+    public static final double DIRECTION_PERTURB_DEGREES = 5.0;
     public static final double OBSTACLE_TURN_MIN_DEGREES = 120.0;
     public static final double OBSTACLE_TURN_MAX_DEGREES = 180.0;
     public static final double GRAB_FINISH_DISTANCE = 0.5;

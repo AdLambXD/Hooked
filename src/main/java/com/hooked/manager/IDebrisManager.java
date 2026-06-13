@@ -20,5 +20,7 @@ public interface IDebrisManager {
 
     int countNearby(Location playerLocation, int radius);
 
+    Debris findDebrisByInteractionUUID(UUID interactionUUID);
+
     void clearAll();
 }

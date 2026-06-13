@@ -27,6 +27,8 @@ public final class ConfigManager {
     private double cooldownSeconds;
     private double hitRadius;
     private double grabAnimationSpeed;
+    private boolean attackEnabled;
+    private double attackCooldownSeconds;
     private boolean integrationItemsAdder;
     private boolean integrationWorldGuard;
     private boolean integrationBentoBox;
@@ -49,11 +51,13 @@ public final class ConfigManager {
         spawnDistanceMin = getInt("debris.spawn_distance_min", 16);
         spawnDistanceMax = getInt("debris.spawn_distance_max", 48);
         despawnDistance = getInt("debris.despawn_distance", 128);
-        driftSpeed = getDouble("debris.drift_speed", 0.04);
+        driftSpeed = getDouble("debris.drift_speed", 1.25);
         yLevelOffset = getDouble("debris.y_level_offset", 0.2);
         cooldownSeconds = getDouble("hook.cooldown_seconds", 1.5);
         hitRadius = getDouble("hook.hit_radius", 2.0);
         grabAnimationSpeed = getDouble("hook.grab_animation_speed", 0.5);
+        attackEnabled = getBoolean("attack.enabled", true);
+        attackCooldownSeconds = getDouble("attack.cooldown_seconds", 0.5);
         integrationItemsAdder = getBoolean("integrations.itemsadder", true);
         integrationWorldGuard = getBoolean("integrations.worldguard", true);
         integrationBentoBox = getBoolean("integrations.bentobox", true);
@@ -183,6 +187,8 @@ public final class ConfigManager {
     public double getCooldownSeconds() { return cooldownSeconds; }
     public double getHitRadius() { return hitRadius; }
     public double getGrabAnimationSpeed() { return grabAnimationSpeed; }
+    public boolean isAttackEnabled() { return attackEnabled; }
+    public double getAttackCooldownSeconds() { return attackCooldownSeconds; }
     public boolean isIntegrationItemsAdder() { return integrationItemsAdder; }
     public boolean isIntegrationWorldGuard() { return integrationWorldGuard; }
     public boolean isIntegrationBentoBox() { return integrationBentoBox; }

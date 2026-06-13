@@ -8,13 +8,17 @@ debris:
   spawn_distance_min: 16
   spawn_distance_max: 48
   despawn_distance: 128
-  drift_speed: 0.04
+  drift_speed: 1.25
   y_level_offset: 0.2
 
 hook:
   cooldown_seconds: 1.5
   hit_radius: 2.0
   grab_animation_speed: 0.5
+
+attack:
+  enabled: true
+  cooldown_seconds: 0.5
 
 integrations:
   itemsadder: true
