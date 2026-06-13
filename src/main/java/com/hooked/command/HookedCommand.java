@@ -14,6 +14,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
@@ -136,10 +137,18 @@ public final class HookedCommand implements CommandExecutor, TabCompleter {
             entity.addScoreboardTag(Constants.ENTITY_TAG);
             entity.setPersistent(false);
 
+            final Interaction interaction = (Interaction) targetLoc.getWorld()
+                .spawnEntity(targetLoc, EntityType.INTERACTION);
+            interaction.setInteractionWidth(1.0f);
+            interaction.setInteractionHeight(1.0f);
+            interaction.addScoreboardTag(Constants.ENTITY_TAG);
+            interaction.setPersistent(false);
+
             final DebrisType type = configManager.getDebrisTypes().get(0);
             final Debris debris = new Debris(entity.getUniqueId(), type, entity.getLocation(),
                 new Vector(0, 0, 0));
             debris.setEntity(entity);
+            debris.setInteractionEntity(interaction);
             debrisManager.addDebris(debris);
 
             player.sendMessage("§aTest debris spawned at your crosshair. Entity ID: " + entity.getUniqueId());

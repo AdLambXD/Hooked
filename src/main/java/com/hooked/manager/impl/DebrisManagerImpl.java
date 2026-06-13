@@ -98,7 +98,20 @@ public final class DebrisManagerImpl implements IDebrisManager, Listener {
 
         final BlockDisplay entity = debris.getEntity();
         if (entity != null && entity.isValid()) {
-            entity.getScheduler().run(plugin, task -> entity.remove(), null);
+            try {
+                entity.getScheduler().run(plugin, task -> entity.remove(), null);
+            } catch (final Exception e) {
+                if (entity.isValid()) entity.remove();
+            }
+        }
+
+        final org.bukkit.entity.Interaction interaction = debris.getInteractionEntity();
+        if (interaction != null && interaction.isValid()) {
+            try {
+                interaction.getScheduler().run(plugin, task -> interaction.remove(), null);
+            } catch (final Exception e) {
+                if (interaction.isValid()) interaction.remove();
+            }
         }
 
         for (final Map.Entry<ChunkKey, List<Debris>> entry : chunkMap.entrySet()) {

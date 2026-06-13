@@ -11,9 +11,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -81,7 +81,7 @@ public final class SpawnControllerImpl implements ISpawnController {
             for (int i = 0; i < Math.min(deficit, 3); i++) {
                 final DebrisType type = selectType(types, totalWeight);
                 if (type == null) continue;
-                trySpawnForPlayer(player, type);
+                scheduleSpawnForPlayer(player, type);
             }
         }
     }
@@ -95,7 +95,17 @@ public final class SpawnControllerImpl implements ISpawnController {
         return types.get(0);
     }
 
-    private void trySpawnForPlayer(final Player player, final DebrisType type) {
+    private void scheduleSpawnForPlayer(final Player player, final DebrisType type) {
+        player.getScheduler().run(plugin, task -> {
+            try {
+                trySpawnOnRegion(player, type);
+            } catch (final Exception e) {
+                logger.warning("Failed to spawn debris: " + e.getMessage());
+            }
+        }, null);
+    }
+
+    private void trySpawnOnRegion(final Player player, final DebrisType type) {
         final Location playerLoc = player.getLocation();
         final World world = playerLoc.getWorld();
 
@@ -105,13 +115,7 @@ public final class SpawnControllerImpl implements ISpawnController {
 
             if (!isLocationValid(spawnLoc, player)) continue;
 
-            Bukkit.getRegionScheduler().run(plugin, spawnLoc, task -> {
-                try {
-                    spawnDebris(spawnLoc, type, player);
-                } catch (final Exception e) {
-                    logger.warning("Failed to spawn debris: " + e.getMessage());
-                }
-            });
+            spawnDebris(spawnLoc, type, player);
             return;
         }
     }
@@ -151,8 +155,8 @@ public final class SpawnControllerImpl implements ISpawnController {
         final int by = loc.getBlockY();
         final int bz = loc.getBlockZ();
 
-        final Block below = world.getBlockAt(bx, (int) Math.floor(loc.getY()) - 1, bz);
-        if (below.getType() != Material.WATER) return false;
+        final Material below = world.getBlockAt(bx, (int) Math.floor(loc.getY()) - 1, bz).getType();
+        if (below != Material.WATER) return false;
 
         for (int dx = -Constants.OBSTACLE_CHECK_RADIUS; dx <= Constants.OBSTACLE_CHECK_RADIUS; dx++) {
             for (int dy = 0; dy <= 2; dy++) {
@@ -243,11 +247,19 @@ public final class SpawnControllerImpl implements ISpawnController {
         entity.addScoreboardTag(Constants.ENTITY_TAG);
         entity.setPersistent(false);
 
+        final Interaction interaction = (Interaction) loc.getWorld().spawnEntity(
+            event.getLocation(), EntityType.INTERACTION);
+        interaction.setInteractionWidth(1.0f);
+        interaction.setInteractionHeight(1.0f);
+        interaction.addScoreboardTag(Constants.ENTITY_TAG);
+        interaction.setPersistent(false);
+
         final Vector driftDir = new Vector(
             random.nextDouble() * 2 - 1, 0, random.nextDouble() * 2 - 1).normalize();
 
         final Debris debris = new Debris(entity.getUniqueId(), type, entity.getLocation(), driftDir);
         debris.setEntity(entity);
+        debris.setInteractionEntity(interaction);
         debrisManager.addDebris(debris);
 
         if (configManager.isDebug()) {

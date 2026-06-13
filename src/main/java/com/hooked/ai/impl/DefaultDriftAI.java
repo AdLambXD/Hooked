@@ -24,7 +24,6 @@ public final class DefaultDriftAI implements IDriftAI {
     private final IDebrisManager debrisManager;
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
     private boolean running;
-    private long lastPerturbTime;
 
     public DefaultDriftAI(final JavaPlugin plugin, final ConfigManager configManager,
                           final IDebrisManager debrisManager) {
@@ -37,7 +36,6 @@ public final class DefaultDriftAI implements IDriftAI {
     @Override
     public void start() {
         running = true;
-        lastPerturbTime = System.currentTimeMillis();
         Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> {
             try {
                 if (!running) {
@@ -58,9 +56,7 @@ public final class DefaultDriftAI implements IDriftAI {
 
     private void tickDrift() {
         final long now = System.currentTimeMillis();
-        final double deltaTime = (now - lastPerturbTime) / 1000.0;
         final double speed = configManager.getDriftSpeed();
-        final double perturbDegrees = Constants.DIRECTION_PERTURB_DEGREES;
 
         for (final Debris debris : debrisManager.getAllDebris()) {
             if (debris.isHooked()) continue;
@@ -68,50 +64,72 @@ public final class DefaultDriftAI implements IDriftAI {
             final BlockDisplay entity = debris.getEntity();
             if (entity == null || !entity.isValid()) continue;
 
-            final Location currentLoc = entity.getLocation();
-            Vector direction = debris.getDriftDirection();
+            final Vector currentDir = debris.getDriftDirection();
+            final Vector newDir;
 
             if (now - debris.getLastUpdateTime() >= 5000L) {
-                final double angle = random.nextDouble(-perturbDegrees, perturbDegrees) * Math.PI / 180.0;
-                direction = rotateY(direction, angle);
-                debris.setDriftDirection(direction);
+                final double angle = random.nextDouble(-Constants.DIRECTION_PERTURB_DEGREES,
+                    Constants.DIRECTION_PERTURB_DEGREES) * Math.PI / 180.0;
+                newDir = rotateY(currentDir, angle);
+                debris.setDriftDirection(newDir);
                 debris.setLastUpdateTime(now);
-            }
-
-            final double moveDist = speed * deltaTime;
-            Location newLoc = currentLoc.clone().add(direction.clone().multiply(moveDist));
-
-            if (canMoveTo(entity.getWorld(), newLoc)) {
-                scheduleTeleport(entity, newLoc, debris, direction);
             } else {
-                final double turnAngle = Math.toRadians(
-                    random.nextDouble(Constants.OBSTACLE_TURN_MIN_DEGREES,
-                                      Constants.OBSTACLE_TURN_MAX_DEGREES));
-                final Vector newDir = rotateY(direction, turnAngle);
-                final Location altLoc = currentLoc.clone().add(newDir.clone().multiply(moveDist));
-                if (canMoveTo(entity.getWorld(), altLoc)) {
-                    debris.setDriftDirection(newDir);
-                    debris.setLastUpdateTime(now);
-                    scheduleTeleport(entity, altLoc, debris, newDir);
-                }
+                newDir = currentDir;
             }
+
+            final Location currentLoc = entity.getLocation();
+            final Location candidateLoc = currentLoc.clone().add(newDir.clone().multiply(speed));
+
+            scheduleDriftMove(entity, candidateLoc, newDir, debris, currentLoc);
         }
     }
 
-    private void scheduleTeleport(final BlockDisplay entity, final Location newLoc,
-                                   final Debris debris, final Vector newDir) {
+    private void scheduleDriftMove(final BlockDisplay entity, final Location candidateLoc,
+                                    final Vector newDir, final Debris debris,
+                                    final Location originalLoc) {
         entity.getScheduler().run(plugin, task -> {
-            if (entity.isValid()) {
-                final float yaw = (float) Math.toDegrees(Math.atan2(-newDir.getX(), newDir.getZ()));
-                newLoc.setYaw(yaw);
-                entity.teleport(newLoc);
+            try {
+                if (!entity.isValid()) return;
+
+                if (canMoveTo(entity.getWorld(), candidateLoc)) {
+                    teleportEntity(entity, candidateLoc, debris, newDir);
+                } else {
+                    final double turnAngle = Math.toRadians(
+                        random.nextDouble(Constants.OBSTACLE_TURN_MIN_DEGREES,
+                                          Constants.OBSTACLE_TURN_MAX_DEGREES));
+                    final Vector altDir = rotateY(newDir, turnAngle);
+                    final double speed = configManager.getDriftSpeed();
+                    final Location altLoc = originalLoc.clone().add(altDir.clone().multiply(speed));
+
+                    if (canMoveTo(entity.getWorld(), altLoc)) {
+                        debris.setDriftDirection(altDir);
+                        debris.setLastUpdateTime(System.currentTimeMillis());
+                        teleportEntity(entity, altLoc, debris, altDir);
+                    }
+                }
+            } catch (final Exception e) {
+                if (e.getMessage() != null) {
+                    logger.warning("Drift move error: " + e.getMessage());
+                }
             }
         }, null);
+    }
+
+    private void teleportEntity(final BlockDisplay entity, final Location loc,
+                                 final Debris debris, final Vector dir) {
+        final float yaw = (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+        loc.setYaw(yaw);
+        entity.teleportAsync(loc);
+
+        final org.bukkit.entity.Interaction interaction = debris.getInteractionEntity();
+        if (interaction != null && interaction.isValid()) {
+            interaction.teleportAsync(loc);
+        }
 
         if (configManager.isDebug()) {
             logger.fine("Debris #" + debris.getDebugId() + " drift: -> ("
-                + newLoc.getBlockX() + ", " + newLoc.getBlockY() + ", " + newLoc.getBlockZ()
-                + ") dir: " + newDir);
+                + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ()
+                + ") dir: " + dir);
         }
     }
 
@@ -127,9 +145,11 @@ public final class DefaultDriftAI implements IDriftAI {
         if (at != Material.AIR && at != Material.CAVE_AIR && at != Material.VOID_AIR
             && at != Material.WATER) return false;
 
-        final int aheadX = (int) Math.floor(loc.getX() + loc.getDirection().getX());
-        final int aheadZ = (int) Math.floor(loc.getZ() + loc.getDirection().getZ());
-        final Material ahead = world.getBlockAt(aheadX, by, aheadZ).getType();
+        final double aheadX = loc.getX() + loc.getDirection().getX();
+        final double aheadZ = loc.getZ() + loc.getDirection().getZ();
+        final int ax = (int) Math.floor(aheadX);
+        final int az = (int) Math.floor(aheadZ);
+        final Material ahead = world.getBlockAt(ax, by, az).getType();
         return ahead == Material.WATER || ahead == Material.AIR
             || ahead == Material.CAVE_AIR || ahead == Material.VOID_AIR;
     }

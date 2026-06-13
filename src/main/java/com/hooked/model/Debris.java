@@ -2,6 +2,7 @@ package com.hooked.model;
 
 import org.bukkit.Location;
 import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Interaction;
 import org.bukkit.util.Vector;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ public final class Debris {
     private final int debugId;
     private final Map<String, Object> customData = new HashMap<>();
     private BlockDisplay entity;
+    private Interaction interactionEntity;
 
     public Debris(final UUID entityId, final DebrisType type, final Location spawnLocation,
                   final Vector driftDirection) {
@@ -73,4 +75,6 @@ public final class Debris {
     public Map<String, Object> getCustomData() { return customData; }
     public BlockDisplay getEntity() { return entity; }
     public void setEntity(final BlockDisplay entity) { this.entity = entity; }
+    public Interaction getInteractionEntity() { return interactionEntity; }
+    public void setInteractionEntity(final Interaction entity) { this.interactionEntity = entity; }
 }

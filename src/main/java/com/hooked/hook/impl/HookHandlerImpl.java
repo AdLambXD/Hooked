@@ -14,6 +14,7 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -34,7 +35,6 @@ public final class HookHandlerImpl implements IHookHandler, Listener {
     private final ConfigManager configManager;
     private final IDebrisManager debrisManager;
     private final ILootGenerator lootGenerator;
-    private final Map<UUID, Location> hookLocationMap = new ConcurrentHashMap<>();
     private final Map<UUID, Long> cooldownMap = new ConcurrentHashMap<>();
 
     public HookHandlerImpl(final JavaPlugin plugin, final ConfigManager configManager,
@@ -56,52 +56,54 @@ public final class HookHandlerImpl implements IHookHandler, Listener {
         PlayerFishEvent.getHandlerList().unregister(this);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onPlayerFish(final PlayerFishEvent event) {
         final Player player = event.getPlayer();
         final UUID playerId = player.getUniqueId();
 
-        switch (event.getState()) {
-            case FISHING -> {
-                final Location hookLoc = event.getHook().getLocation().clone();
-                hookLocationMap.put(playerId, hookLoc);
+        final PlayerFishEvent.State state = event.getState();
+        if (state == PlayerFishEvent.State.FISHING) return;
+
+        if (state != PlayerFishEvent.State.REEL_IN
+            && state != PlayerFishEvent.State.CAUGHT_FISH
+            && state != PlayerFishEvent.State.CAUGHT_ENTITY) return;
+
+        final Location hookLoc;
+        try {
+            hookLoc = event.getHook().getLocation().clone();
+        } catch (final Exception e) {
+            return;
+        }
+
+        event.setCancelled(true);
+        try { event.getHook().remove(); } catch (final Exception ignored) {}
+
+        if (isOnCooldown(playerId)) {
+            if (configManager.isDebug()) {
+                logger.fine("Player " + player.getName() + " hook on cooldown");
             }
-            case REEL_IN, CAUGHT_FISH -> {
-                event.setCancelled(true);
-                event.getHook().remove();
+            return;
+        }
 
-                if (isOnCooldown(playerId)) {
-                    if (configManager.isDebug()) {
-                        logger.fine("Player " + player.getName() + " hook on cooldown");
-                    }
-                    return;
+        final double radius = configManager.getHitRadius();
+        final Debris debris = debrisManager.findNearestHookable(hookLoc, radius);
+
+        final DebrisHookAttemptEvent attemptEvent = new DebrisHookAttemptEvent(player, debris, hookLoc);
+        Bukkit.getPluginManager().callEvent(attemptEvent);
+        if (attemptEvent.isCancelled()) return;
+
+        if (debris == null) {
+            handleMiss(player, hookLoc);
+        } else {
+            if (!debris.tryHook(playerId)) {
+                handleMiss(player, hookLoc);
+                if (configManager.isDebug()) {
+                    logger.fine("Hook conflict: debris #" + debris.getDebugId()
+                        + " already hooked by " + debris.getHookedBy());
                 }
-
-                final Location hookLoc = hookLocationMap.remove(playerId);
-                if (hookLoc == null) return;
-
-                final double radius = configManager.getHitRadius();
-                final Debris debris = debrisManager.findNearestHookable(hookLoc, radius);
-
-                final DebrisHookAttemptEvent attemptEvent = new DebrisHookAttemptEvent(player, debris, hookLoc);
-                Bukkit.getPluginManager().callEvent(attemptEvent);
-                if (attemptEvent.isCancelled()) return;
-
-                if (debris == null) {
-                    handleMiss(player);
-                } else {
-                    if (!debris.tryHook(playerId)) {
-                        handleMiss(player);
-                        if (configManager.isDebug()) {
-                            logger.fine("Hook conflict: debris #" + debris.getDebugId()
-                                + " already hooked by " + debris.getHookedBy());
-                        }
-                    } else {
-                        handleHookSuccess(player, debris);
-                    }
-                }
+            } else {
+                handleHookSuccess(player, debris);
             }
-            default -> {}
         }
     }
 
@@ -119,11 +121,12 @@ public final class HookHandlerImpl implements IHookHandler, Listener {
         cooldownMap.put(playerId, System.currentTimeMillis() + (long)(seconds * 1000));
     }
 
-    private void handleMiss(final Player player) {
+    private void handleMiss(final Player player, final Location hookLoc) {
         player.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_SPLASH, 0.5f, 1.5f);
         setCooldown(player.getUniqueId(), 1.0);
         if (configManager.isDebug()) {
-            logger.fine("Hook miss for player " + player.getName());
+            logger.fine("Hook miss for player " + player.getName()
+                + " at " + hookLoc.getBlockX() + "," + hookLoc.getBlockY() + "," + hookLoc.getBlockZ());
         }
     }
 
@@ -174,7 +177,12 @@ public final class HookHandlerImpl implements IHookHandler, Listener {
                 final Vector moveVec = toTarget.normalize().multiply(speed);
                 final Location newLoc = debrisLoc.clone().add(moveVec);
                 newLoc.setDirection(toTarget.normalize());
-                entity.teleport(newLoc);
+                entity.teleportAsync(newLoc);
+
+                final Interaction interaction = debris.getInteractionEntity();
+                if (interaction != null && interaction.isValid()) {
+                    interaction.teleportAsync(newLoc);
+                }
 
                 player.getWorld().spawnParticle(Particle.BUBBLE, debrisLoc, 3, 0.2, 0.2, 0.2, 0.02);
 
