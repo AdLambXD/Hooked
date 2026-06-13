@@ -74,7 +74,8 @@ public final class SpawnControllerImpl implements ISpawnController {
             final World world = player.getWorld();
             if (world.getEnvironment() != World.Environment.NORMAL) continue;
 
-            final Location northLoc = player.getLocation().clone().add(0, 0, -96);
+            final int northMid = -(configManager.getSpawnNorthMin() + configManager.getSpawnNorthMax()) / 2;
+            final Location northLoc = player.getLocation().clone().add(0, 0, northMid);
             final int current = debrisManager.countNearby(northLoc, radius);
             final int deficit = maxPerPlayer - current;
             if (deficit <= 0) continue;
@@ -124,8 +125,8 @@ public final class SpawnControllerImpl implements ISpawnController {
     private Location findSpawnLocation(final Location playerLoc, final World world) {
         final double yOffset = configManager.getYLevelOffset();
 
-        final double x = playerLoc.getX() + random.nextDouble(-16, 16);
-        final double z = playerLoc.getZ() - 96;
+        final double x = playerLoc.getX() + random.nextDouble(-configManager.getSpawnXRange(), configManager.getSpawnXRange());
+        final double z = playerLoc.getZ() - random.nextDouble(configManager.getSpawnNorthMin(), configManager.getSpawnNorthMax());
 
         final int seaLevel = world.getSeaLevel();
         final int blockX = (int) Math.floor(x);
@@ -240,6 +241,8 @@ public final class SpawnControllerImpl implements ISpawnController {
         entity.setBlock(type.getBlockMaterial().createBlockData());
         entity.addScoreboardTag(Constants.ENTITY_TAG);
         entity.setPersistent(false);
+        entity.setInterpolationDelay(0);
+        entity.setTeleportDuration(2);
 
         final Interaction interaction = (Interaction) loc.getWorld().spawnEntity(
             event.getLocation(), EntityType.INTERACTION);

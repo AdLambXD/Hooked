@@ -10,6 +10,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Interaction;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
@@ -17,6 +18,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 
 public final class DefaultDriftAI implements IDriftAI {
+
+    private static final long TICK_INTERVAL = 2L;
+    private static final double TICK_INTERVAL_SECONDS = TICK_INTERVAL / 20.0;
+    private static final int TELEPORT_DURATION = 3;
 
     private final JavaPlugin plugin;
     private final Logger logger;
@@ -46,7 +51,7 @@ public final class DefaultDriftAI implements IDriftAI {
             } catch (final Exception e) {
                 logger.warning("Drift tick error: " + e.getMessage());
             }
-        }, Constants.DRIFT_TICK_INTERVAL, Constants.DRIFT_TICK_INTERVAL);
+        }, TICK_INTERVAL, TICK_INTERVAL);
     }
 
     @Override
@@ -56,7 +61,6 @@ public final class DefaultDriftAI implements IDriftAI {
 
     private void tickDrift() {
         final long now = System.currentTimeMillis();
-        final double speed = configManager.getDriftSpeed();
 
         for (final Debris debris : debrisManager.getAllDebris()) {
             if (debris.isHooked()) continue;
@@ -64,47 +68,56 @@ public final class DefaultDriftAI implements IDriftAI {
             final BlockDisplay entity = debris.getEntity();
             if (entity == null || !entity.isValid()) continue;
 
-            final Vector currentDir = debris.getDriftDirection();
-            final Vector newDir;
-
-            if (now - debris.getLastUpdateTime() >= 5000L) {
-                final double angle = random.nextDouble(-Constants.DIRECTION_PERTURB_DEGREES,
-                    Constants.DIRECTION_PERTURB_DEGREES) * Math.PI / 180.0;
-                newDir = rotateY(currentDir, angle);
-                debris.setDriftDirection(newDir);
-                debris.setLastUpdateTime(now);
-            } else {
-                newDir = currentDir;
-            }
-
-            final Location currentLoc = entity.getLocation();
-            final Location candidateLoc = currentLoc.clone().add(newDir.clone().multiply(speed));
-
-            scheduleDriftMove(entity, candidateLoc, newDir, debris, currentLoc);
+            scheduleDriftMove(entity, debris, now);
         }
     }
 
-    private void scheduleDriftMove(final BlockDisplay entity, final Location candidateLoc,
-                                    final Vector newDir, final Debris debris,
-                                    final Location originalLoc) {
+    private void scheduleDriftMove(final BlockDisplay entity, final Debris debris,
+                                    final long now) {
         entity.getScheduler().run(plugin, task -> {
             try {
                 if (!entity.isValid()) return;
 
+                ensureTeleportDuration(entity);
+
+                final Vector currentDir = debris.getDriftDirection();
+                final Vector newDir;
+
+                if (now - debris.getLastUpdateTime() >= 5000L) {
+                    final double angle = random.nextDouble(-Constants.DIRECTION_PERTURB_DEGREES,
+                        Constants.DIRECTION_PERTURB_DEGREES) * Math.PI / 180.0;
+                    newDir = rotateY(currentDir, angle);
+                    debris.setDriftDirection(newDir);
+                    debris.setLastUpdateTime(now);
+                } else {
+                    newDir = currentDir;
+                }
+
+                final Location currentLoc = entity.getLocation();
+                final double speed = configManager.getDriftSpeed() * TICK_INTERVAL_SECONDS;
+                final Location candidateLoc = currentLoc.clone().add(newDir.clone().multiply(speed));
+
+                final double bobOffset = 0.05 * Math.sin((currentLoc.getX() + currentLoc.getZ()) * 3.0
+                    + now * 0.0008 + debris.getDebugId());
+                candidateLoc.setY(candidateLoc.getY() + bobOffset);
+
+                final float yaw = (float) Math.toDegrees(Math.atan2(-newDir.getX(), newDir.getZ()));
+                candidateLoc.setYaw(yaw);
+
                 if (canMoveTo(entity.getWorld(), candidateLoc)) {
-                    teleportEntity(entity, candidateLoc, debris, newDir);
+                    teleportEntity(entity, candidateLoc, debris);
                 } else {
                     final double turnAngle = Math.toRadians(
                         random.nextDouble(Constants.OBSTACLE_TURN_MIN_DEGREES,
                                           Constants.OBSTACLE_TURN_MAX_DEGREES));
                     final Vector altDir = rotateY(newDir, turnAngle);
-                    final double speed = configManager.getDriftSpeed();
-                    final Location altLoc = originalLoc.clone().add(altDir.clone().multiply(speed));
+                    final Location altLoc = currentLoc.clone().add(altDir.clone().multiply(speed));
+                    altLoc.setYaw((float) Math.toDegrees(Math.atan2(-altDir.getX(), altDir.getZ())));
 
                     if (canMoveTo(entity.getWorld(), altLoc)) {
                         debris.setDriftDirection(altDir);
-                        debris.setLastUpdateTime(System.currentTimeMillis());
-                        teleportEntity(entity, altLoc, debris, altDir);
+                        debris.setLastUpdateTime(now);
+                        teleportEntity(entity, altLoc, debris);
                     }
                 }
             } catch (final Exception e) {
@@ -115,13 +128,17 @@ public final class DefaultDriftAI implements IDriftAI {
         }, null);
     }
 
+    private void ensureTeleportDuration(final BlockDisplay entity) {
+        if (entity.getTeleportDuration() != TELEPORT_DURATION) {
+            entity.setTeleportDuration(TELEPORT_DURATION);
+        }
+    }
+
     private void teleportEntity(final BlockDisplay entity, final Location loc,
-                                 final Debris debris, final Vector dir) {
-        final float yaw = (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
-        loc.setYaw(yaw);
+                                 final Debris debris) {
         entity.teleportAsync(loc);
 
-        final org.bukkit.entity.Interaction interaction = debris.getInteractionEntity();
+        final Interaction interaction = debris.getInteractionEntity();
         if (interaction != null && interaction.isValid()) {
             interaction.teleportAsync(loc);
         }
@@ -129,7 +146,7 @@ public final class DefaultDriftAI implements IDriftAI {
         if (configManager.isDebug()) {
             logger.fine("Debris #" + debris.getDebugId() + " drift: -> ("
                 + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ()
-                + ") dir: " + dir);
+                + ") dir: " + debris.getDriftDirection());
         }
     }
 

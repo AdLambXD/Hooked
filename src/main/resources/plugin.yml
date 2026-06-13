@@ -1,26 +1,39 @@
+# ==============================================================
+# Hooked - 木筏求生漂浮物收集系统
+# ==============================================================
+
+# 插件基本信息
 name: Hooked
 version: 1.0
 main: com.hooked.HookedPlugin
 api-version: "1.21"
 folia-supported: true
-description: 木筏求生漂浮物收集系统
+description: 木筏求生漂浮物收集系统 — 在无尽海洋中漂流收集资源
 author: AdLamb
 
+# 软依赖（非必需，缺少时插件仍可正常运行）
+# ProtocolLib - 数据包通信（可选扩展）
+# ItemsAdder  - 自定义物品/模型支持
+# WorldGuard  - 区域保护集成
+# BentoBox   - 海岛插件集成
 softdepend:
+  - ProtocolLib
   - ItemsAdder
   - WorldGuard
   - BentoBox
 
+# 命令注册
 commands:
   hooked:
     description: Hooked 插件主命令
     usage: /hooked <reload|debug|stats|test>
     aliases: [hk]
 
+# 权限节点
 permissions:
   hooked.admin:
-    description: 管理员权限
+    description: 管理员权限 — 允许使用 reload、stats、test 子命令
     default: op
   hooked.debug:
-    description: 调试模式权限
+    description: 调试模式权限 — 允许使用 debug 子命令切换个人调试
     default: op

@@ -26,6 +26,7 @@ public final class Debris {
     private final Map<String, Object> customData = new HashMap<>();
     private BlockDisplay entity;
     private Interaction interactionEntity;
+    private Location lastSentLocation;
 
     public Debris(final UUID entityId, final DebrisType type, final Location spawnLocation,
                   final Vector driftDirection) {
@@ -77,4 +78,6 @@ public final class Debris {
     public void setEntity(final BlockDisplay entity) { this.entity = entity; }
     public Interaction getInteractionEntity() { return interactionEntity; }
     public void setInteractionEntity(final Interaction entity) { this.interactionEntity = entity; }
+    public Location getLastSentLocation() { return lastSentLocation == null ? null : lastSentLocation.clone(); }
+    public void setLastSentLocation(final Location loc) { this.lastSentLocation = loc == null ? null : loc.clone(); }
 }

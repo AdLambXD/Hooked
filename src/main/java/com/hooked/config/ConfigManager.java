@@ -22,6 +22,9 @@ public final class ConfigManager {
     private int spawnDistanceMin;
     private int spawnDistanceMax;
     private int despawnDistance;
+    private int spawnNorthMin;
+    private int spawnNorthMax;
+    private int spawnXRange;
     private double driftSpeed;
     private double yLevelOffset;
     private double cooldownSeconds;
@@ -51,6 +54,9 @@ public final class ConfigManager {
         spawnDistanceMin = getInt("debris.spawn_distance_min", 16);
         spawnDistanceMax = getInt("debris.spawn_distance_max", 48);
         despawnDistance = getInt("debris.despawn_distance", 128);
+        spawnNorthMin = getInt("debris.spawn_north_min", 48);
+        spawnNorthMax = getInt("debris.spawn_north_max", 96);
+        spawnXRange = getInt("debris.spawn_x_range", 24);
         driftSpeed = getDouble("debris.drift_speed", 1.25);
         yLevelOffset = getDouble("debris.y_level_offset", 0.2);
         cooldownSeconds = getDouble("hook.cooldown_seconds", 1.5);
@@ -182,6 +188,9 @@ public final class ConfigManager {
     public int getSpawnDistanceMin() { return spawnDistanceMin; }
     public int getSpawnDistanceMax() { return spawnDistanceMax; }
     public int getDespawnDistance() { return despawnDistance; }
+    public int getSpawnNorthMin() { return spawnNorthMin; }
+    public int getSpawnNorthMax() { return spawnNorthMax; }
+    public int getSpawnXRange() { return spawnXRange; }
     public double getDriftSpeed() { return driftSpeed; }
     public double getYLevelOffset() { return yLevelOffset; }
     public double getCooldownSeconds() { return cooldownSeconds; }
