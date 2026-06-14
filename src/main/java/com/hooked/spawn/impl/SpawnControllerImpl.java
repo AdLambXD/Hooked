@@ -128,11 +128,11 @@ public final class SpawnControllerImpl implements ISpawnController {
         final double x = playerLoc.getX() + random.nextDouble(-configManager.getSpawnXRange(), configManager.getSpawnXRange());
         final double z = playerLoc.getZ() - random.nextDouble(configManager.getSpawnNorthMin(), configManager.getSpawnNorthMax());
 
-        final int seaLevel = world.getSeaLevel();
         final int blockX = (int) Math.floor(x);
         final int blockZ = (int) Math.floor(z);
 
-        for (int y = seaLevel; y >= seaLevel - 10; y--) {
+        final int highestY = world.getHighestBlockYAt(blockX, blockZ);
+        for (int y = highestY; y >= world.getMinHeight(); y--) {
             final Material mat = world.getBlockAt(blockX, y, blockZ).getType();
             if (mat == Material.WATER) {
                 final Material above = world.getBlockAt(blockX, y + 1, blockZ).getType();

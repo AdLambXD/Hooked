@@ -1,0 +1,64 @@
+# ==============================================================
+# Hooked 漂浮物类型配置文件
+# ==============================================================
+#
+# 可在此处自由添加/删除/修改漂浮物类型
+# 也可通过游戏内指令 /hooked type ... 动态管理
+# 修改后请使用 /hooked reload 重载配置
+#
+# 每种类型支持：
+#   block         - 原版方块材质名（不区分大小写）
+#   itemsadder_id - ItemsAdder 物品 ID（需要集成开启）
+#   weight        - 生成权重，值越大出现概率越高
+#   loot          - 掉落物列表（支持多物品、随机数量、概率）
+# --------------------------------------------------------------
+
+types:
+  # 木板 - 基础资源，掉落大量木棍
+  plank:
+    block: OAK_PLANKS
+    itemsadder_id: ""
+    weight: 50
+    loot:
+      - item: STICK
+        min: 4
+        max: 6
+        chance: 100.0
+
+  # 木桶 - 中等概率，掉落多种物资
+  barrel:
+    block: BARREL
+    itemsadder_id: ""
+    weight: 20
+    loot:
+      - item: STICK
+        min: 1
+        max: 2
+        chance: 100.0
+      - item: IRON_INGOT
+        min: 2
+        max: 3
+        chance: 100.0
+      - item: STRING
+        min: 1
+        max: 2
+        chance: 80.0
+      - item: CHICKEN
+        min: 1
+        max: 1
+        chance: 2.0
+
+  # 树叶团 - 基础资源，掉落线和木棍
+  leaves:
+    block: OAK_LEAVES
+    itemsadder_id: ""
+    weight: 30
+    loot:
+      - item: STRING
+        min: 1
+        max: 3
+        chance: 100.0
+      - item: STICK
+        min: 1
+        max: 1
+        chance: 80.0
