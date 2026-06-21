@@ -42,6 +42,11 @@ public final class ConfigManager {
     private boolean integrationBentoBox;
     private String driftAiClass;
     private String showLootMessage;
+    private boolean environmentEnabled;
+    private Map<String, Double> weatherSpawnMultipliers;
+    private Map<String, Double> weatherDriftMultipliers;
+    private Map<String, Double> moonSpawnMultipliers;
+    private Map<String, Double> moonDriftMultipliers;
     private final List<DebrisType> debrisTypes = new ArrayList<>();
 
     public ConfigManager(final JavaPlugin plugin) {
@@ -76,12 +81,37 @@ public final class ConfigManager {
         driftAiClass = getString("drift_ai_class", "");
         showLootMessage = getString("show_loot_message", "action_bar");
 
+        loadEnvironmentConfig();
         loadTypesFile();
         loadDebrisTypes();
 
         if (debug) {
             logger.info("Configuration loaded: " + debrisTypes.size() + " debris types, "
                 + "max_per_player=" + maxPerPlayer + ", drift_speed=" + driftSpeed);
+        }
+    }
+
+    private void loadEnvironmentConfig() {
+        environmentEnabled = getBoolean("environment.enabled", true);
+
+        weatherSpawnMultipliers = new HashMap<>();
+        weatherDriftMultipliers = new HashMap<>();
+        for (final String weatherKey : List.of("clear", "rain", "thunder")) {
+            weatherSpawnMultipliers.put(weatherKey,
+                getDouble("environment.weather." + weatherKey + ".spawn_multiplier", 1.0));
+            weatherDriftMultipliers.put(weatherKey,
+                getDouble("environment.weather." + weatherKey + ".drift_multiplier", 1.0));
+        }
+
+        moonSpawnMultipliers = new HashMap<>();
+        moonDriftMultipliers = new HashMap<>();
+        for (final String moonKey : List.of("full_moon", "waning_gibbous", "last_quarter",
+            "waning_crescent", "new_moon", "waxing_crescent",
+            "first_quarter", "waxing_gibbous")) {
+            moonSpawnMultipliers.put(moonKey,
+                getDouble("environment.moon_phase." + moonKey + ".spawn_multiplier", 1.0));
+            moonDriftMultipliers.put(moonKey,
+                getDouble("environment.moon_phase." + moonKey + ".drift_multiplier", 1.0));
         }
     }
 
@@ -117,7 +147,8 @@ public final class ConfigManager {
 
                 final int weight = sec.getInt("weight", 10);
                 final List<LootEntry> loot = loadLootEntries(sec, key);
-                debrisTypes.add(new DebrisType(key, material, iaId.isEmpty() ? null : iaId, weight, loot));
+                final Map<String, Double> envWeightMods = loadEnvWeightMods(sec);
+                debrisTypes.add(new DebrisType(key, material, iaId.isEmpty() ? null : iaId, weight, loot, envWeightMods));
             } catch (final Exception e) {
                 logger.warning("Failed to load debris type '" + key + "': " + e.getMessage());
             }
@@ -151,6 +182,17 @@ public final class ConfigManager {
         return entries;
     }
 
+    private Map<String, Double> loadEnvWeightMods(final ConfigurationSection sec) {
+        final ConfigurationSection modSection = sec.getConfigurationSection("weight_mod");
+        if (modSection == null) return Map.of();
+
+        final Map<String, Double> mods = new HashMap<>();
+        for (final String key : modSection.getKeys(false)) {
+            mods.put(key, modSection.getDouble(key, 1.0));
+        }
+        return mods.isEmpty() ? Map.of() : Map.copyOf(mods);
+    }
+
     private void addDefaultTypes() {
         debrisTypes.add(new DebrisType("plank", Material.OAK_PLANKS, null, 50, List.of(
             new LootEntry("OAK_PLANKS", null, 1, 3, 100.0))));
@@ -181,6 +223,11 @@ public final class ConfigManager {
                 lootList.add(lootMap);
             }
             typesConfig.set(path + ".loot", lootList);
+            if (!type.getEnvWeightMods().isEmpty()) {
+                for (final Map.Entry<String, Double> entry : type.getEnvWeightMods().entrySet()) {
+                    typesConfig.set(path + ".weight_mod." + entry.getKey(), entry.getValue());
+                }
+            }
         }
         try {
             typesConfig.save(typesFile);
@@ -223,17 +270,19 @@ public final class ConfigManager {
         final String iaId;
         final int weight;
         final List<LootEntry> loot;
+        final Map<String, Double> envWeightMods;
 
         switch (key.toLowerCase()) {
             case "block" -> {
                 final Material mat = Material.getMaterial(value.toUpperCase());
                 if (mat == null && (current.getItemsAdderId() == null || current.getItemsAdderId().isEmpty())) {
-                    return false; // would leave type with no visible representation
+                    return false;
                 }
                 blockMaterial = mat;
                 iaId = current.getItemsAdderId();
                 weight = current.getWeight();
                 loot = new ArrayList<>(current.getLootTable());
+                envWeightMods = current.getEnvWeightMods();
             }
             case "weight" -> {
                 try {
@@ -243,6 +292,7 @@ public final class ConfigManager {
                     iaId = current.getItemsAdderId();
                     weight = w;
                     loot = new ArrayList<>(current.getLootTable());
+                    envWeightMods = current.getEnvWeightMods();
                 } catch (final NumberFormatException e) {
                     return false;
                 }
@@ -254,11 +304,12 @@ public final class ConfigManager {
                 iaId = newIaId;
                 weight = current.getWeight();
                 loot = new ArrayList<>(current.getLootTable());
+                envWeightMods = current.getEnvWeightMods();
             }
             default -> { return false; }
         }
 
-        debrisTypes.set(idx, new DebrisType(id, blockMaterial, iaId, weight, loot));
+        debrisTypes.set(idx, new DebrisType(id, blockMaterial, iaId, weight, loot, envWeightMods));
         saveTypes();
         return true;
     }
@@ -272,7 +323,7 @@ public final class ConfigManager {
         newLoot.add(entry);
 
         debrisTypes.set(idx, new DebrisType(type.getId(), type.getBlockMaterial(),
-            type.getItemsAdderId(), type.getWeight(), newLoot));
+            type.getItemsAdderId(), type.getWeight(), newLoot, type.getEnvWeightMods()));
         saveTypes();
         return true;
     }
@@ -287,7 +338,7 @@ public final class ConfigManager {
         newLoot.remove(lootIndex);
 
         debrisTypes.set(idx, new DebrisType(type.getId(), type.getBlockMaterial(),
-            type.getItemsAdderId(), type.getWeight(), newLoot));
+            type.getItemsAdderId(), type.getWeight(), newLoot, type.getEnvWeightMods()));
         saveTypes();
         return true;
     }
@@ -298,7 +349,7 @@ public final class ConfigManager {
 
         final int idx = debrisTypes.indexOf(type);
         debrisTypes.set(idx, new DebrisType(type.getId(), type.getBlockMaterial(),
-            type.getItemsAdderId(), type.getWeight(), List.of()));
+            type.getItemsAdderId(), type.getWeight(), List.of(), type.getEnvWeightMods()));
         saveTypes();
         return true;
     }
@@ -361,4 +412,22 @@ public final class ConfigManager {
     public String getDriftAiClass() { return driftAiClass; }
     public String getShowLootMessage() { return showLootMessage; }
     public List<DebrisType> getDebrisTypes() { return Collections.unmodifiableList(debrisTypes); }
+
+    public boolean isEnvironmentEnabled() { return environmentEnabled; }
+
+    public double getWeatherSpawnMultiplier(final String weather) {
+        return weatherSpawnMultipliers.getOrDefault(weather, 1.0);
+    }
+
+    public double getWeatherDriftMultiplier(final String weather) {
+        return weatherDriftMultipliers.getOrDefault(weather, 1.0);
+    }
+
+    public double getMoonSpawnMultiplier(final String moonPhase) {
+        return moonSpawnMultipliers.getOrDefault(moonPhase, 1.0);
+    }
+
+    public double getMoonDriftMultiplier(final String moonPhase) {
+        return moonDriftMultipliers.getOrDefault(moonPhase, 1.0);
+    }
 }

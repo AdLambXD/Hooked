@@ -2,6 +2,7 @@ package com.hooked.spawn.impl;
 
 import com.hooked.config.ConfigManager;
 import com.hooked.constants.Constants;
+import com.hooked.environment.EnvironmentUtil;
 import com.hooked.events.DebrisSpawnEvent;
 import com.hooked.manager.IDebrisManager;
 import com.hooked.model.Debris;
@@ -63,35 +64,45 @@ public final class SpawnControllerImpl implements ISpawnController {
     }
 
     private void tickSpawn() {
-        final int maxPerPlayer = configManager.getMaxPerPlayer();
+        final int baseMaxPerPlayer = configManager.getMaxPerPlayer();
         final int radius = configManager.getSpawnDistanceMax();
         final List<DebrisType> types = configManager.getDebrisTypes();
         if (types.isEmpty()) return;
-
-        final int totalWeight = types.stream().mapToInt(DebrisType::getWeight).sum();
 
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final World world = player.getWorld();
             if (world.getEnvironment() != World.Environment.NORMAL) continue;
 
+            final int effectiveMax = configManager.isEnvironmentEnabled()
+                ? EnvironmentUtil.getEffectiveMaxPerPlayer(world, configManager)
+                : baseMaxPerPlayer;
+
+            final int totalWeight = configManager.isEnvironmentEnabled()
+                ? types.stream().mapToInt(t -> EnvironmentUtil.getEffectiveTypeWeight(t, world, configManager)).sum()
+                : types.stream().mapToInt(DebrisType::getWeight).sum();
+            if (totalWeight <= 0) continue;
+
             final int northMid = -(configManager.getSpawnNorthMin() + configManager.getSpawnNorthMax()) / 2;
             final Location northLoc = player.getLocation().clone().add(0, 0, northMid);
             final int current = debrisManager.countNearby(northLoc, radius);
-            final int deficit = maxPerPlayer - current;
+            final int deficit = effectiveMax - current;
             if (deficit <= 0) continue;
 
             for (int i = 0; i < Math.min(deficit, 3); i++) {
-                final DebrisType type = selectType(types, totalWeight);
+                final DebrisType type = selectType(types, totalWeight, world);
                 if (type == null) continue;
                 scheduleSpawnForPlayer(player, type);
             }
         }
     }
 
-    private DebrisType selectType(final List<DebrisType> types, final int totalWeight) {
+    private DebrisType selectType(final List<DebrisType> types, final int totalWeight,
+                                   final World world) {
         int roll = random.nextInt(totalWeight);
         for (final DebrisType type : types) {
-            roll -= type.getWeight();
+            roll -= configManager.isEnvironmentEnabled()
+                ? EnvironmentUtil.getEffectiveTypeWeight(type, world, configManager)
+                : type.getWeight();
             if (roll < 0) return type;
         }
         return types.get(0);

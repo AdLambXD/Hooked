@@ -54,6 +54,54 @@ debris:
   y_level_offset: 0.2
 
 # --------------------------------------------------------------
+# 环境影响设置
+# --------------------------------------------------------------
+# 让漂浮物数量、漂流速度、类型权重受天气和月相影响
+# 关闭 enabled 则所有环境因素失效，使用基础值
+environment:
+  enabled: true
+
+  # 天气对生成数量和漂流速度的影响倍率
+  weather:
+    clear:
+      spawn_multiplier: 1.0
+      drift_multiplier: 1.0
+    rain:
+      spawn_multiplier: 1.5
+      drift_multiplier: 1.2
+    thunder:
+      spawn_multiplier: 2.0
+      drift_multiplier: 1.5
+
+  # 月相对生成数量和漂流速度的影响倍率
+  # 月相共有 8 个阶段，每天 (24000 tick) 推进一次
+  moon_phase:
+    full_moon:
+      spawn_multiplier: 1.5
+      drift_multiplier: 1.1
+    waning_gibbous:
+      spawn_multiplier: 1.25
+      drift_multiplier: 1.05
+    last_quarter:
+      spawn_multiplier: 1.0
+      drift_multiplier: 1.0
+    waning_crescent:
+      spawn_multiplier: 0.75
+      drift_multiplier: 0.95
+    new_moon:
+      spawn_multiplier: 0.5
+      drift_multiplier: 0.9
+    waxing_crescent:
+      spawn_multiplier: 0.75
+      drift_multiplier: 0.95
+    first_quarter:
+      spawn_multiplier: 1.0
+      drift_multiplier: 1.0
+    waxing_gibbous:
+      spawn_multiplier: 1.25
+      drift_multiplier: 1.05
+
+# --------------------------------------------------------------
 # 钩取 (Hook) 相关设置
 # --------------------------------------------------------------
 hook:

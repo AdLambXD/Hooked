@@ -3,6 +3,7 @@ package com.hooked.ai.impl;
 import com.hooked.ai.IDriftAI;
 import com.hooked.config.ConfigManager;
 import com.hooked.constants.Constants;
+import com.hooked.environment.EnvironmentUtil;
 import com.hooked.manager.IDebrisManager;
 import com.hooked.model.Debris;
 import org.bukkit.Bukkit;
@@ -94,7 +95,10 @@ public final class DefaultDriftAI implements IDriftAI {
                 }
 
                 final Location currentLoc = entity.getLocation();
-                final double speed = configManager.getDriftSpeed() * TICK_INTERVAL_SECONDS;
+                final double baseSpeed = configManager.isEnvironmentEnabled()
+                    ? EnvironmentUtil.getEffectiveDriftSpeed(entity.getWorld(), configManager)
+                    : configManager.getDriftSpeed();
+                final double speed = baseSpeed * TICK_INTERVAL_SECONDS;
                 final Location candidateLoc = currentLoc.clone().add(newDir.clone().multiply(speed));
 
                 final double bobOffset = 0.05 * Math.sin((currentLoc.getX() + currentLoc.getZ()) * 3.0
